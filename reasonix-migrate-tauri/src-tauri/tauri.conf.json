@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "reasonix-migrate",
+  "version": "0.1.0",
+  "identifier": "com.ameng.reasonix-migrate",
+  "build": {
+    "beforeDevCommand": "pnpm dev:renderer",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build:renderer",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "reasonix-migrate — Reasonix 会话迁移工具",
+        "width": 860,
+        "height": 640,
+        "minWidth": 720,
+        "minHeight": 520,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

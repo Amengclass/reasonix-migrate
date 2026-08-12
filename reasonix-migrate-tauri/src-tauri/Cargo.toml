@@ -1,0 +1,39 @@
+[package]
+name = "reasonix-migrate-tauri"
+version = "0.1.0"
+description = "Reasonix 会话迁移工具（Tauri 2 + Rust 重写版）"
+authors = ["Ameng"]
+edition = "2021"
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "reasonix_migrate_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+chrono = "0.4"
+dirs = "5.0"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+
+[features]
+# 让 debug 构建也加载打包好的 dist（自包含 exe，不依赖 vite dev server）：
+# cargo build --features custom-protocol
+custom-protocol = ["tauri/custom-protocol"]
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Threading"] }
+
+[dev-dependencies]
+tempfile = "3"

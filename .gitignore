@@ -1,0 +1,26 @@
+# ---- 开发辅助文件（不入库）----
+cat_state.py
+inspect_catalog.py
+会话迁移 - *.json
+
+# ---- Reasonix 运行时数据 ----
+.reasonix/
+
+# ---- 构建产物与日志 ----
+**/target/
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/*.log
+*.local
+
+# ---- 编辑器 ----
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
