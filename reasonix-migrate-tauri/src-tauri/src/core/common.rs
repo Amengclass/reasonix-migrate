@@ -66,13 +66,21 @@ pub fn is_session_id_prefix(s: &str) -> bool {
         && b[16..22].iter().all(|c| c.is_ascii_digit())
 }
 
-/// recovery 分支后缀：`-recovery-<hex>$`（大小写不敏感），返回 `-recovery-` 起始下标。
+/// recovery 分支后缀：`-recovery-<hex>`（旧）或 `-recovery-<hex>-<hex>`（v1.24 起
+/// fork 分支带 writer 后缀，双 hex），大小写不敏感；返回 `-recovery-` 起始下标。
 pub fn recovery_suffix_start(s: &str) -> Option<usize> {
     let lower = s.to_ascii_lowercase();
     let needle = "-recovery-";
     let idx = lower.rfind(needle)?;
     let rest = &s[idx + needle.len()..];
-    if !rest.is_empty() && rest.chars().all(|c| c.is_ascii_hexdigit()) {
+    if rest.is_empty() {
+        return None;
+    }
+    // 一个或多个 hex 组（`hex` 或 `hex-hex-...`），组间单个 `-` 分隔
+    if rest
+        .split('-')
+        .all(|g| !g.is_empty() && g.chars().all(|c| c.is_ascii_hexdigit()))
+    {
         Some(idx)
     } else {
         None
@@ -736,6 +744,16 @@ mod tests {
             "20260808-155503.898846400-9974"
         );
         assert_eq!(base_session_id("20260808-155503.898846400"), "20260808-155503.898846400");
+        // v1.24 起 fork 分支 recovery 带 writer 后缀：`-recovery-<hex>-<hex>`（双 hex）
+        assert!(is_recovery_branch(
+            "20260807-145055.936123800-deepseek-deepseek-v4-flash-21c719480427-535086b70a5b-8-7da16dd807da-recovery-ed225b5df26e78a1-4c319b5c22a0"
+        ));
+        assert_eq!(
+            base_session_id("20260807-145055.936123800-deepseek-deepseek-v4-flash-21c719480427-535086b70a5b-8-7da16dd807da-recovery-ed225b5df26e78a1-4c319b5c22a0"),
+            "20260807-145055.936123800-deepseek-deepseek-v4-flash-21c719480427-535086b70a5b-8-7da16dd807da"
+        );
+        // `-recovery-` 后带非 hex 尾巴不算 recovery
+        assert!(!is_recovery_branch("20260808-155503.898846400-recovery-notes"));
     }
 
     #[test]
@@ -759,6 +777,11 @@ mod tests {
         assert_eq!(
             session_id_of("20260808-155503.898846400-9974-recovery-abc123.jsonl"),
             Some("20260808-155503.898846400-9974-recovery-abc123")
+        );
+        // v1.24 双 hex recovery 分支的 jsonl 同样剥出完整 id
+        assert_eq!(
+            session_id_of("20260807-145055.936123800-deepseek-deepseek-v4-flash-21c719480427-535086b70a5b-8-7da16dd807da-recovery-ed225b5df26e78a1-4c319b5c22a0.jsonl"),
+            Some("20260807-145055.936123800-deepseek-deepseek-v4-flash-21c719480427-535086b70a5b-8-7da16dd807da-recovery-ed225b5df26e78a1-4c319b5c22a0")
         );
         assert_eq!(session_id_of("notes.txt"), None);
         assert_eq!(session_id_of("desktop-workspace"), None);

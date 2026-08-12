@@ -70,7 +70,7 @@ The GUI has four tabs:
 
 ## Compatibility
 
-Built and tested against **Reasonix desktop v1.24.1**. Reasonix uses a versioned data layout (`versions/<ver>/`); this tool reads the standard `desktop-projects.json` + `projects/*/sessions` structure. **Much older Reasonix versions with a different data layout may not work.**
+Built and tested against **Reasonix desktop v1.24.1 / v1.24.2** (currently verified on **v1.24.2**). Reasonix uses a versioned data layout (`versions/<ver>/`); this tool reads the standard `desktop-projects.json` + `projects/*/sessions` structure, and supports the **double-hex recovery-branch naming** (`-recovery-<hex>-<hex>`) and **v4 session catalog** (`cache/session-catalog/v4.sqlite`) introduced in v1.24. **Much older Reasonix versions with a different data layout may not work.**
 
 ## Configuration
 

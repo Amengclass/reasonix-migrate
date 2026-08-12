@@ -70,7 +70,7 @@ cd src-tauri && cargo build --features custom-protocol
 
 ## 兼容性
 
-本工具基于并测试于 **Reasonix 桌面版 v1.24.1**。Reasonix 采用版本化数据目录（`versions/<版本>/`）；本工具读取标准的 `desktop-projects.json` + `projects/*/sessions` 结构。**数据格式差异较大的早期 Reasonix 版本可能无法使用。**
+本工具基于并测试于 **Reasonix 桌面版 v1.24.1 / v1.24.2**（当前验证版本 **v1.24.2**）。Reasonix 采用版本化数据目录（`versions/<版本>/`）；本工具读取标准的 `desktop-projects.json` + `projects/*/sessions` 结构，并支持 v1.24 起引入的**双 hex recovery 分支命名**（`-recovery-<hex>-<hex>`）与 **v4 会话目录**（`cache/session-catalog/v4.sqlite`）。**数据格式差异较大的早期 Reasonix 版本可能无法使用。**
 
 ## 配置
 
