@@ -68,6 +68,10 @@ cd src-tauri && cargo build --features custom-protocol
 | **导入** | 把备份 zip 恢复到目标 Reasonix home（slug 重映射、冲突跳过、哈希复查）。 |
 | **校验** | 检查备份 zip 完整性（文件数 + 逐文件 SHA-256）。 |
 
+## 兼容性
+
+本工具基于并测试于 **Reasonix 桌面版 v1.24.1**。Reasonix 采用版本化数据目录（`versions/<版本>/`）；本工具读取标准的 `desktop-projects.json` + `projects/*/sessions` 结构。**数据格式差异较大的早期 Reasonix 版本可能无法使用。**
+
 ## 配置
 
 | 变量 | 默认值 | 说明 |

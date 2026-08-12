@@ -68,6 +68,10 @@ The GUI has four tabs:
 | **Import** | Restore a backup zip into a target Reasonix home (slug remap, conflict skip, hash re-verify). |
 | **Verify** | Check a backup zip for integrity (file count + per-file SHA-256). |
 
+## Compatibility
+
+Built and tested against **Reasonix desktop v1.24.1**. Reasonix uses a versioned data layout (`versions/<ver>/`); this tool reads the standard `desktop-projects.json` + `projects/*/sessions` structure. **Much older Reasonix versions with a different data layout may not work.**
+
 ## Configuration
 
 | Variable | Default | Description |
