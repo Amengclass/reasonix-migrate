@@ -19,6 +19,7 @@ function readableDate(sid: string): string {
 
 function projectName(slug: string | null): string {
   if (!slug) return "";
+  if (slug.includes("global")) return "Global";
   return slug.split("-").pop() ?? slug;
 }
 
@@ -84,7 +85,7 @@ export function ExportTab() {
     setProjPicker({
       rows: slugs.map((sl) => ({
         value: sl,
-        label: sl,
+        label: projectName(sl),
         sub: `${all.filter((s) => s.slug === sl).length} 个会话`,
       })),
       sel: new Set(project.trim() ? project.trim().split(/[,\s]+/).filter(Boolean) : []),
@@ -95,7 +96,12 @@ export function ExportTab() {
     if (!src.trim()) throw new Error("请先填写源 home");
     const all = await loadSessionsCached();
     setSessPicker({
-      rows: all.map((s) => ({ value: s.id, label: s.id, session: s })),
+      rows: all.map((s) => ({
+        value: s.id,
+        label: s.title ? `「${s.title.slice(0, 36)}」` : s.id,
+        sub: `${readableDate(s.id)} · ${projectName(s.slug)}`,
+        session: s,
+      })),
       sel: new Set(session.trim() ? session.trim().split(/[,\s]+/).filter(Boolean) : []),
     });
   };

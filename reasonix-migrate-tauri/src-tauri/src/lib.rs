@@ -194,6 +194,12 @@ fn restart_reasonix() -> String {
     core::one::restart_reasonix_app()
 }
 
+/// 保存日志文本到文件。
+#[tauri::command]
+fn save_log_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content).map_err(|e| format!("写入失败: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -209,7 +215,8 @@ pub fn run() {
             do_verify,
             do_import,
             list_zip_workspaces_cmd,
-            restart_reasonix
+            restart_reasonix,
+            save_log_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

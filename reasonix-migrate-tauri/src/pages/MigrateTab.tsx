@@ -69,12 +69,15 @@ function modelOf(sid: string): string {
 
 function projectName(slug: string | null): string {
   if (!slug) return "";
+  if (slug.includes("global")) return "Global";
   return slug.split("-").pop() ?? slug;
 }
 
-/** 项目显示名：优先用 workspace_root 的最后一段（真实目录名，含连字符不拆坏），兜底 slug 尾段 */
+/** 项目显示名：Global 目录特殊处理，其余优先用 workspace_root 最后一段 */
 function projectNameOf(entry: { slug: string | null; workspace_root: string | null } | null | undefined): string {
   if (!entry) return "";
+  const slug = entry.slug ?? "";
+  if (slug.includes("global")) return "Global";
   const ws = entry.workspace_root;
   if (ws) {
     const base = ws.replace(/[\\/]+$/, "").split(/[\\/]/).pop();

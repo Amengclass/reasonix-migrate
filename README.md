@@ -68,6 +68,24 @@ cd src-tauri && cargo build --features custom-protocol
 | **导入** | 把备份 zip 恢复到目标 Reasonix home（slug 重映射、冲突跳过、哈希复查）。 |
 | **校验** | 检查备份 zip 完整性（文件数 + 逐文件 SHA-256）。 |
 
+### 界面截图
+
+**迁移页签** — 从源 Reasonix home 选择会话，迁移到目标工作区：
+
+![会话迁移页面](screenshots/会话迁移页面.jpg)
+
+**导出页签** — 把 Reasonix 数据打包成备份 zip（可按项目/会话/日期过滤）：
+
+![导出页面](screenshots/导出页面.jpg)
+
+**导入页签** — 从备份 zip 恢复到目标 Reasonix home：
+
+![导入页面](screenshots/导入页面.jpg)
+
+**校验页签** — 检查备份 zip 完整性（文件数 + SHA-256 哈希）：
+
+![校验页面](screenshots/校验页面.jpg)
+
 ## 兼容性
 
 本工具基于并测试于 **Reasonix 桌面版 v1.24.1 / v1.24.2**（当前验证版本 **v1.24.2**）。Reasonix 采用版本化数据目录（`versions/<版本>/`）；本工具读取标准的 `desktop-projects.json` + `projects/*/sessions` 结构，并支持 v1.24 起引入的**双 hex recovery 分支命名**（`-recovery-<hex>-<hex>`）与 **v4 会话目录**（`cache/session-catalog/v4.sqlite`）。**数据格式差异较大的早期 Reasonix 版本可能无法使用。**

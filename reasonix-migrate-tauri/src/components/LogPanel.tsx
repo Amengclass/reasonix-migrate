@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Download, Eraser } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
+import { saveLogFile } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export type LogLevel = "task" | "cmd" | "info" | "ok" | "warn" | "err";
@@ -59,15 +61,17 @@ export function LogPanel({ lines, onClear }: { lines: LogLine[]; onClear: () => 
     if (text) await navigator.clipboard.writeText(text);
   }, [lines]);
 
-  const exportLog = useCallback(() => {
+  const exportLog = useCallback(async () => {
     const text = lines.map((l) => `[${l.ts}] ${l.text}`).join("\n");
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `reasonix-migrate-log-${now().replace(/:/g, "")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (!text) return;
+    const path = await save({
+      title: "导出日志",
+      defaultPath: `reasonix-migrate-log-${now().replace(/:/g, "")}.txt`,
+      filters: [{ name: "文本文件", extensions: ["txt"] }],
+    });
+    if (path) {
+      await saveLogFile(path, text);
+    }
   }, [lines]);
 
   return (

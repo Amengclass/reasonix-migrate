@@ -365,9 +365,14 @@ pub fn export(
                 }
             }
         } else {
-            inc.insert(rel.clone());
-            if *is_dir {
-                add_tree(abs_path, rel, &mut inc, opts.include_secrets);
+            // 有项目/会话过滤时，只打包 projects 目录 + 关键注册文件；无过滤时全量备份
+            if opts.project_filters.is_empty() && opts.session_filters.is_empty() {
+                inc.insert(rel.clone());
+                if *is_dir {
+                    add_tree(abs_path, rel, &mut inc, opts.include_secrets);
+                }
+            } else if rel == "desktop-projects.json" || rel == "desktop-project-tree-organization.json" {
+                inc.insert(rel.clone());
             }
         }
     }

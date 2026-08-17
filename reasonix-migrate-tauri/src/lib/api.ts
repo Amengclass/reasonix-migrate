@@ -168,6 +168,11 @@ export async function restartReasonix(): Promise<string> {
   return invoke<string>("restart_reasonix");
 }
 
+/** 保存日志文本到文件。 */
+export async function saveLogFile(path: string, content: string): Promise<void> {
+  return invoke("save_log_file", { path, content });
+}
+
 // ---- 路径选择 ----
 
 export async function pickDirectory(title: string): Promise<string | null> {

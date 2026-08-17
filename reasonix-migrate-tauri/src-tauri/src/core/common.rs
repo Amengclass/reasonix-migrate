@@ -265,6 +265,8 @@ pub struct Session {
     pub authored_turns: Option<i64>,
     /// 是否在 desktop-projects.json 注册（Reasonix 左侧会话列表可见）
     pub registered: bool,
+    /// 会话 scope："global" 或 None
+    pub scope: Option<String>,
 }
 
 impl Session {
@@ -307,6 +309,7 @@ impl Session {
                     turns: turns_of(&meta),
                     authored_turns,
                     registered: false,
+                    scope: meta.get("scope").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 });
             }
         }
@@ -409,24 +412,46 @@ fn list_sessions_home_scan(home: &Path, project: Option<&str>) -> Vec<Session> {
         if sdir.is_dir() {
             // skip_authored：阶段 1 只读 meta 过滤，display-index 在过滤出可见会话后补读
             let mut sessions = Session::from_meta_dir(&sdir, None, true);
+            // Global 会话：scope=global，无 workspace_root，用 globalTopics 判定可见
+            // 普通会话：workspace_root 必须属于已注册项目
             sessions.retain(|s| {
-                let ws_ok = s
-                    .workspace_root
-                    .as_deref()
-                    .map(|w| known.contains_key(&abs_norm(w).to_lowercase()))
-                    .unwrap_or(false);
-                if !ws_ok {
-                    return false;
-                }
-                match s.topic_id.as_deref() {
-                    Some(t) => !dp.deleted_topics.contains(t),
-                    None => false,
+                let is_global = s.scope.as_deref() == Some("global");
+                if is_global {
+                    // Global 会话：topic 必须在 globalTopics 且未删除
+                    match s.topic_id.as_deref() {
+                        Some(t) => dp.visible_topics.contains(t) && !dp.deleted_topics.contains(t),
+                        // 无 topic_id 的旧 Global 会话：也视为可见（legacy 会话无 topic_id）
+                        None => true,
+                    }
+                } else {
+                    // 普通会话：workspace_root 必须属于已注册项目
+                    let ws_ok = s
+                        .workspace_root
+                        .as_deref()
+                        .map(|w| known.contains_key(&abs_norm(w).to_lowercase()))
+                        .unwrap_or(false);
+                    if !ws_ok {
+                        return false;
+                    }
+                    match s.topic_id.as_deref() {
+                        Some(t) => !dp.deleted_topics.contains(t),
+                        None => false,
+                    }
                 }
             });
             // Reasonix 列表规则：turns=0 的空会话不显示（reasonix 侧同样过滤）
             sessions.retain(|s| s.turns.map(|t| t > 0).unwrap_or(true));
             for s in &mut sessions {
-                if let Some(ws) = s.workspace_root.as_deref() {
+                if s.scope.as_deref() == Some("global") {
+                    // Global 会话：slug = 物理目录名（如 e--reasonixdata-global-workspace）
+                    s.slug = Some(
+                        slug_dir
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default(),
+                    );
+                    s.registered = true;
+                } else if let Some(ws) = s.workspace_root.as_deref() {
                     if let Some(sl) = known.get(&abs_norm(ws).to_lowercase()) {
                         s.slug = Some(sl.clone());
                         s.registered = true;
@@ -439,12 +464,81 @@ fn list_sessions_home_scan(home: &Path, project: Option<&str>) -> Vec<Session> {
     // 2) 按会话 id 倒序输出（新会话在前，与 Reasonix 左侧一致）
     //    同一 topic 在多个项目注册时（双注册），每个项目各输出一次（与 reasonix 一致）
     let mut out = Vec::new();
+    // 构建 root → ProjectEntry 的映射，供按 root 查找
+    let proj_by_root: HashMap<String, &ProjectEntry> = dp
+        .projects
+        .iter()
+        .map(|p| (abs_norm(&p.root).to_lowercase(), p))
+        .collect();
+    // 1) Global 会话：按 desktop-project-tree-organization.json 的 global.topicOrder 输出
+    //    兜底 dp.global_topics（tree 文件不存在时）
+    let global_order = if dp.global_topic_order.is_empty() {
+        dp.global_topics.clone()
+    } else {
+        dp.global_topic_order.clone()
+    };
+    let mut project_topic_set: HashSet<String> = HashSet::new();
     for p in &dp.projects {
+        for t in &p.topics {
+            project_topic_set.insert(t.clone());
+        }
+    }
+    for gt in &global_order {
+        if project_topic_set.contains(gt.as_str()) {
+            continue;
+        }
+        let mut best: Option<(Session, String, u64)> = None;
+        for s in &all {
+            if s.topic_id.as_deref() != Some(gt.as_str()) {
+                continue;
+            }
+            let meta_val = s.meta_path.as_deref().and_then(|mp| read_meta(Path::new(mp)));
+            let upd = meta_val
+                .as_ref()
+                .and_then(|m| m.get("updated_at").and_then(|v| v.as_str()).map(String::from))
+                .unwrap_or_default();
+            let rev = meta_val
+                .as_ref()
+                .and_then(|m| m.get("revision").and_then(|v| v.as_u64()))
+                .unwrap_or(0);
+            let replace = match &best {
+                None => true,
+                Some((_, b_upd, b_rev)) => {
+                    if upd != *b_upd {
+                        upd > *b_upd
+                    } else {
+                        rev > *b_rev
+                    }
+                }
+            };
+            if replace {
+                best = Some((s.clone(), upd, rev));
+            }
+        }
+        if let Some((mut s, _, _)) = best {
+            out.push(s);
+        }
+    }
+    // 2) 项目会话：按 tree-organization 的 project_order 排列项目，
+    //    项目内按 project_topic_orders 排列 topic；兜底 dp.projects 顺序
+    let project_roots: Vec<String> = if dp.project_order.is_empty() {
+        dp.projects.iter().map(|p| abs_norm(&p.root).to_lowercase()).collect()
+    } else {
+        dp.project_order.clone()
+    };
+    for root_norm in &project_roots {
+        let Some(p) = proj_by_root.get(root_norm.as_str()) else {
+            continue;
+        };
         let p_slug = slug_of(&p.root);
         let p_norm = abs_norm(&p.root).to_lowercase();
-        for t in &p.topics {
-            // 找该 topic 的会话副本：workspace_root 匹配本项目 root 的优先，
-            // 同优先级选 updated_at 最新、再比 revision（reasonix 活跃会话可能是 recovery 分支文件）
+        // topic 顺序：tree organization 优先，兜底 dp.projects 里的 topics
+        let topic_order: Vec<String> = dp
+            .project_topic_orders
+            .get(root_norm)
+            .cloned()
+            .unwrap_or_else(|| p.topics.clone());
+        for t in &topic_order {
             let mut best: Option<(Session, bool, String, u64)> = None;
             for s in &all {
                 if s.topic_id.as_deref() != Some(t.as_str()) {
@@ -490,7 +584,7 @@ fn list_sessions_home_scan(home: &Path, project: Option<&str>) -> Vec<Session> {
     for s in &mut out {
         fill_authored_turns(s);
     }
-    // 顺序 = 注册表顺序（projects[] 数组 → topics[] 数组），与 Reasonix 左侧一致，不再排序
+    // 顺序 = desktop-project-tree-organization.json 的排列顺序，与 Reasonix 左侧一致
     out
 }
 
@@ -523,6 +617,7 @@ pub fn list_sessions_zip(zip_path: &Path) -> Vec<Session> {
             turns: None,
             authored_turns: None,
             registered: false,
+            scope: None,
         });
     }
     out.sort_by(|a, b| b.id.cmp(&a.id));
@@ -572,6 +667,13 @@ pub struct DesktopProjects {
     pub projects: Vec<ProjectEntry>,
     pub visible_topics: HashSet<String>,
     pub deleted_topics: HashSet<String>,
+    pub global_topics: Vec<String>,
+    /// desktop-project-tree-organization.json 的 Global topic 顺序
+    pub global_topic_order: Vec<String>,
+    /// desktop-project-tree-organization.json 的项目 topic 顺序（root → topicOrder）
+    pub project_topic_orders: HashMap<String, Vec<String>>,
+    /// desktop-project-tree-organization.json 的项目排列顺序（root 列表）
+    pub project_order: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -606,12 +708,38 @@ pub fn load_desktop_projects(home: &Path) -> DesktopProjects {
         dp.visible_topics.extend(p.topics.iter().cloned());
     }
     if let Some(gt) = data.get("globalTopics").and_then(|v| v.as_array()) {
-        dp.visible_topics
-            .extend(gt.iter().filter_map(|t| t.as_str().map(String::from)));
+        let topics: Vec<String> = gt.iter().filter_map(|t| t.as_str().map(String::from)).collect();
+        dp.visible_topics.extend(topics.iter().cloned());
+        dp.global_topics = topics;
     }
     if let Some(dt) = data.get("deletedTopics").and_then(|v| v.as_array()) {
         dp.deleted_topics
             .extend(dt.iter().filter_map(|t| t.as_str().map(String::from)));
+    }
+    // 加载 desktop-project-tree-organization.json（侧边栏真实顺序来源）
+    let tree_path = home.join("desktop-project-tree-organization.json");
+    if let Ok(tree_raw) = fs::read(&tree_path) {
+        if let Ok(tree) = serde_json::from_slice::<Value>(&tree_raw) {
+            // Global topic 顺序
+            if let Some(gt) = tree.get("global").and_then(|g| g.get("topicOrder")).and_then(|v| v.as_array()) {
+                dp.global_topic_order = gt.iter().filter_map(|t| t.as_str().map(String::from)).collect();
+            }
+            // 项目排列顺序 + 每个项目的 topic 顺序
+            if let Some(projs) = tree.get("projects").and_then(|v| v.as_array()) {
+                for p in projs {
+                    if let Some(root) = p.get("root").and_then(|v| v.as_str()) {
+                        let root_norm = abs_norm(root).to_lowercase();
+                        dp.project_order.push(root_norm.clone());
+                        if let Some(to) = p.get("topicOrder").and_then(|v| v.as_array()) {
+                            dp.project_topic_orders.insert(
+                                root_norm,
+                                to.iter().filter_map(|t| t.as_str().map(String::from)).collect(),
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
     dp
 }
@@ -623,20 +751,70 @@ pub struct ProjectInfo {
     pub count: usize,
 }
 
-/// 只读 desktop-projects.json 的项目 slug + 会话数（不扫目录，毫秒级）。
-/// 用于「点开项目下拉时自动刷新项目列表」——reasonix 里新增/删除项目后立即可见；
-/// 会话数直接取注册表 topics（= 左侧真实会话数），无需全量扫描会话目录。
+/// 只读 desktop-projects.json + desktop-project-tree-organization.json 的项目 slug + 会话数。
+/// 顺序与 Reasonix 左侧栏一致：Global 在最上面，项目按 tree-organization 排列。
 pub fn list_projects(home: &Path) -> Vec<ProjectInfo> {
     let dp = load_desktop_projects(home);
     let mut out: Vec<ProjectInfo> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
-    for p in &dp.projects {
+    // 1) Global 项目（最上面）
+    if !dp.global_topics.is_empty() {
+        let projects_dir = home.join("projects");
+        if let Ok(rd) = fs::read_dir(&projects_dir) {
+            for entry in rd.flatten() {
+                let dir_name = entry.file_name().to_string_lossy().to_string();
+                if seen.contains(&dir_name) {
+                    continue;
+                }
+                let sdir = entry.path().join("sessions");
+                if sdir.is_dir() {
+                    let has_global = fs::read_dir(&sdir)
+                        .map(|rd| {
+                            rd.flatten().any(|e| {
+                                let n = e.file_name().to_string_lossy().to_string();
+                                if !n.ends_with(".jsonl.meta") {
+                                    return false;
+                                }
+                                read_meta(&e.path())
+                                    .and_then(|m| m.get("scope").and_then(|v| v.as_str()).map(|s| s == "global"))
+                                    .unwrap_or(false)
+                            })
+                        })
+                        .unwrap_or(false);
+                    if has_global {
+                        let count = dp
+                            .global_topics
+                            .iter()
+                            .filter(|t| !dp.deleted_topics.contains(t.as_str()))
+                            .count();
+                        out.push(ProjectInfo { slug: dir_name.clone(), count });
+                        seen.insert(dir_name);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    // 2) 项目：按 tree-organization 的 project_order 排列，兜底 dp.projects 顺序
+    let proj_by_root: HashMap<String, &ProjectEntry> = dp
+        .projects
+        .iter()
+        .map(|p| (abs_norm(&p.root).to_lowercase(), p))
+        .collect();
+    let project_roots: Vec<String> = if dp.project_order.is_empty() {
+        dp.projects.iter().map(|p| abs_norm(&p.root).to_lowercase()).collect()
+    } else {
+        dp.project_order.clone()
+    };
+    for root_norm in &project_roots {
+        let Some(p) = proj_by_root.get(root_norm.as_str()) else {
+            continue;
+        };
         let s = slug_of(&p.root);
         if s.is_empty() || seen.contains(&s) {
             continue;
         }
         seen.insert(s.clone());
-        // 会话数 = 未删除的 topic 数（与桌面端左侧可见会话一致；被删的 topic 在 deletedTopics）
         let count = p
             .topics
             .iter()
@@ -831,9 +1009,9 @@ mod tests {
     #[test]
     fn dedupe_by_topic() {
         let cands = vec![
-            Session { id: "20260809-100000.111111111-model-a".into(), slug: Some("s1".into()), title: "A".into(), topic_id: Some("t1".into()), workspace_root: None, meta_path: None, turns: None, authored_turns: None, registered: false },
-            Session { id: "20260809-100000.111111111-model-a-recovery-abc".into(), slug: Some("s1".into()), title: "A".into(), topic_id: None, workspace_root: None, meta_path: None, turns: None, authored_turns: None, registered: false },
-            Session { id: "20260809-090000.111111111-model-b".into(), slug: Some("s2".into()), title: "B".into(), topic_id: Some("t2".into()), workspace_root: None, meta_path: None, turns: None, authored_turns: None, registered: false },
+            Session { id: "20260809-100000.111111111-model-a".into(), slug: Some("s1".into()), title: "A".into(), topic_id: Some("t1".into()), workspace_root: None, meta_path: None, turns: None, authored_turns: None, registered: false, scope: None },
+            Session { id: "20260809-100000.111111111-model-a-recovery-abc".into(), slug: Some("s1".into()), title: "A".into(), topic_id: None, workspace_root: None, meta_path: None, turns: None, authored_turns: None, registered: false, scope: None },
+            Session { id: "20260809-090000.111111111-model-b".into(), slug: Some("s2".into()), title: "B".into(), topic_id: Some("t2".into()), workspace_root: None, meta_path: None, turns: None, authored_turns: None, registered: false, scope: None },
         ];
         let out = dedupe_main_sessions(cands, None);
         assert_eq!(out.len(), 2);
@@ -883,25 +1061,42 @@ pub fn list_sessions_groups(home: &Path) -> Vec<SessionGroupView> {
         if sdir.is_dir() {
             // skip_authored：先只读 meta 过滤，display-index 在分组输出后补读
             let mut sessions = Session::from_meta_dir(&sdir, None, true);
-            // 只保留 Reasonix 左侧可见的：workspace_root 属于已知项目 + topic 已注册且未删除
+            // Global 会话：scope=global，用 globalTopics 判定可见
+            // 普通会话：workspace_root 必须属于已注册项目
             sessions.retain(|s| {
-                let ws_ok = s
-                    .workspace_root
-                    .as_deref()
-                    .map(|w| known.contains_key(&abs_norm(w).to_lowercase()))
-                    .unwrap_or(false);
-                if !ws_ok {
-                    return false;
-                }
-                match s.topic_id.as_deref() {
-                    Some(t) => !dp.deleted_topics.contains(t),
-                    None => false,
+                let is_global = s.scope.as_deref() == Some("global");
+                if is_global {
+                    match s.topic_id.as_deref() {
+                        Some(t) => dp.visible_topics.contains(t) && !dp.deleted_topics.contains(t),
+                        None => true,
+                    }
+                } else {
+                    let ws_ok = s
+                        .workspace_root
+                        .as_deref()
+                        .map(|w| known.contains_key(&abs_norm(w).to_lowercase()))
+                        .unwrap_or(false);
+                    if !ws_ok {
+                        return false;
+                    }
+                    match s.topic_id.as_deref() {
+                        Some(t) => !dp.deleted_topics.contains(t),
+                        None => false,
+                    }
                 }
             });
             // 空会话（turns=0）reasonix 不显示
             sessions.retain(|s| s.turns.map(|t| t > 0).unwrap_or(true));
             for s in &mut sessions {
-                if let Some(ws) = s.workspace_root.as_deref() {
+                if s.scope.as_deref() == Some("global") {
+                    s.slug = Some(
+                        slug_dir
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default(),
+                    );
+                    s.registered = true;
+                } else if let Some(ws) = s.workspace_root.as_deref() {
                     if let Some(sl) = known.get(&abs_norm(ws).to_lowercase()) {
                         s.slug = Some(sl.clone());
                         s.registered = true;
@@ -924,11 +1119,96 @@ pub fn list_sessions_groups(home: &Path) -> Vec<SessionGroupView> {
             .push(s.clone());
     }
     let mut views: Vec<SessionGroupView> = Vec::new();
-    // 按注册表顺序输出：projects[] 数组 → 每个项目 topics[] 数组（与 Reasonix 左侧一致）
+    // 用 desktop-project-tree-organization.json 的排列顺序（兜底 dp.projects 顺序）
+    let proj_by_root: HashMap<String, &ProjectEntry> = dp
+        .projects
+        .iter()
+        .map(|p| (abs_norm(&p.root).to_lowercase(), p))
+        .collect();
+    // 1) Global 会话：按 tree-organization 的 global.topicOrder 输出
+    let global_order = if dp.global_topic_order.is_empty() {
+        dp.global_topics.clone()
+    } else {
+        dp.global_topic_order.clone()
+    };
+    let mut project_topic_set: HashSet<String> = HashSet::new();
     for p in &dp.projects {
-        let p_slug = slug_of(&p.root);
-        let mut used: HashSet<String> = HashSet::new();
         for t in &p.topics {
+            project_topic_set.insert(t.clone());
+        }
+    }
+    for gt in &global_order {
+        if project_topic_set.contains(gt.as_str()) {
+            continue;
+        }
+        let mut branches: Vec<Session> = all
+            .iter()
+            .filter(|s| s.topic_id.as_deref() == Some(gt.as_str()))
+            .cloned()
+            .collect();
+        if branches.is_empty() {
+            continue;
+        }
+        branches.sort_by(|a, b| b.id.cmp(&a.id));
+        let rank = |s: &Session| {
+            let m = s.meta_path.as_deref().and_then(|mp| read_meta(Path::new(mp)));
+            (
+                m.as_ref()
+                    .and_then(|v| v.get("updated_at"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                m.as_ref()
+                    .and_then(|v| v.get("revision"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0),
+            )
+        };
+        let active = branches
+            .iter()
+            .cloned()
+            .max_by(|a, b| rank(a).cmp(&rank(b)))
+            .unwrap_or_else(|| branches[0].clone());
+        let title = if !active.title.is_empty() {
+            active.title.clone()
+        } else {
+            branches
+                .iter()
+                .find(|b| !b.title.is_empty())
+                .map(|b| b.title.clone())
+                .unwrap_or_default()
+        };
+        let mut total_bytes = 0u64;
+        for b in &branches {
+            total_bytes += stem_total_bytes(b.meta_path.as_deref());
+        }
+        views.push(SessionGroupView {
+            topic_id: gt.clone(),
+            title,
+            active,
+            branch_count: branches.len(),
+            branches,
+            total_bytes,
+        });
+    }
+    // 2) 项目会话：按 tree-organization 排列
+    let project_roots: Vec<String> = if dp.project_order.is_empty() {
+        dp.projects.iter().map(|p| abs_norm(&p.root).to_lowercase()).collect()
+    } else {
+        dp.project_order.clone()
+    };
+    for root_norm in &project_roots {
+        let Some(p) = proj_by_root.get(root_norm.as_str()) else {
+            continue;
+        };
+        let p_slug = slug_of(&p.root);
+        let topic_order: Vec<String> = dp
+            .project_topic_orders
+            .get(root_norm)
+            .cloned()
+            .unwrap_or_else(|| p.topics.clone());
+        let mut used: HashSet<String> = HashSet::new();
+        for t in &topic_order {
             if used.contains(t) {
                 continue;
             }
