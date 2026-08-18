@@ -2,7 +2,7 @@
 
 pub mod core;
 
-use core::common::{list_sessions_groups, list_sessions_home, SessionGroupView};
+use core::common::{list_sessions_groups, SessionGroupView};
 use core::export::{export, verify, ExportOptions, ExportSummary, VerifySummary};
 use core::import::{import, list_zip_workspaces, ImportOptions, ImportSummary};
 use core::one::{migrate_one, OneOptions, OneSummary};

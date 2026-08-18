@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    reasonix_migrate_tauri_lib::run()
+    reasonix_migrate_lib::run()
 }

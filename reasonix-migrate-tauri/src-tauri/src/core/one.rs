@@ -3,8 +3,8 @@
 //! 源三选一（home / sessions 目录 / 备份 zip）+ 目标工作区 → 复制会话文件族、
 //! 修正 meta 归属、SHA-256 复查、自动注册项目、可选重启桌面端。
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde::Serialize;
+use serde_json::json;
 use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
@@ -305,8 +305,7 @@ pub fn migrate_one(opts: &OneOptions) -> Result<OneSummary, String> {
     let mut warnings: Vec<String> = Vec::new();
 
     // 定位源文件
-    let mut src_entries: Vec<SourceEntry> = Vec::new();
-    let mut src_file_count = 0usize;
+    let src_entries: Vec<SourceEntry>;
     if opts.from_home.is_some() || opts.from_sessions.is_some() {
         let dir = if opts.from_home.is_some() {
             // home 源：优先按源会话所属项目 slug 定位，找不到再遍历
@@ -339,21 +338,10 @@ pub fn migrate_one(opts: &OneOptions) -> Result<OneSummary, String> {
         if entries.is_empty() {
             return Err(format!("源会话 {} 的文件为空（可能目录不完整），请检查源数据", sid));
         }
-        src_file_count = entries
-            .iter()
-            .map(|e| {
-                if e.is_dir() {
-                    count_files(e)
-                } else {
-                    1
-                }
-            })
-            .sum();
         src_entries = entries.into_iter().map(SourceEntry::Fs).collect();
     } else {
         let zip = PathBuf::from(opts.from_zip.as_ref().unwrap());
         let rels = source_files_zip(&zip, &sid)?;
-        src_file_count = rels.iter().filter(|r| !r.ends_with('/')).count();
         src_entries = rels.into_iter().map(SourceEntry::ZipRel).collect();
     }
 

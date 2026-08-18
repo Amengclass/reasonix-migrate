@@ -515,7 +515,7 @@ fn list_sessions_home_scan(home: &Path, project: Option<&str>) -> Vec<Session> {
                 best = Some((s.clone(), upd, rev));
             }
         }
-        if let Some((mut s, _, _)) = best {
+        if let Some((s, _, _)) = best {
             out.push(s);
         }
     }
@@ -560,7 +560,7 @@ fn list_sessions_home_scan(home: &Path, project: Option<&str>) -> Vec<Session> {
                     .unwrap_or(0);
                 let replace = match &best {
                     None => true,
-                    Some((b, b_ws, b_upd, b_rev)) => {
+                    Some((_b, b_ws, b_upd, b_rev)) => {
                         if ws_match != *b_ws {
                             ws_match
                         } else if upd != *b_upd {
