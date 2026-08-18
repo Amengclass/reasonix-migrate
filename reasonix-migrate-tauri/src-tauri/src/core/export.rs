@@ -336,12 +336,25 @@ pub fn export(
 
     // include 集合
     let mut inc: HashSet<String> = HashSet::new();
+    let has_filters = !opts.project_filters.is_empty() || !opts.session_filters.is_empty();
     for (abs_path, rel, is_dir) in &top_entries {
         if rel == "projects" {
-            inc.insert("projects".to_string());
+            if !has_filters {
+                // 无过滤：全量备份，包含整个 projects 目录
+                inc.insert("projects".to_string());
+            }
             for (slug, filtered) in &filtered_groups {
                 let slug_abs = projects_dir.join(slug);
-                inc.insert(format!("projects/{}", slug));
+                if has_filters {
+                    // 有过滤：不加 sessions 目录（避免 walk_skip 遍历所有会话）
+                    // 只加具体会话文件（下面逐个添加）
+                } else {
+                    // 无过滤：全量备份，加整个项目目录
+                    inc.insert(format!("projects/{}", slug));
+                    if !filtered.is_empty() {
+                        inc.insert(format!("projects/{}/sessions", slug));
+                    }
+                }
                 for g in filtered.values() {
                     for f in &g.files {
                         inc.insert(format!("projects/{}/sessions/{}", slug, f));
@@ -352,15 +365,18 @@ pub fn export(
                         inc.insert(format!("projects/{}/sessions/{}", slug, n));
                     }
                 }
-                // 项目目录下除 sessions 外的内容（memory/ 等）
-                for child in sorted_entries(&slug_abs) {
-                    let name = fname(&child);
-                    if name == "sessions" || name_skipped(&name) {
-                        continue;
-                    }
-                    inc.insert(format!("projects/{}/{}", slug, name));
-                    if child.is_dir() {
-                        add_tree(&child, &format!("projects/{}/{}", slug, name), &mut inc, opts.include_secrets);
+                // 有过滤时：不包含项目目录下的 memory/ 等非会话内容
+                // 无过滤时：包含项目目录下除 sessions 外的内容（memory/ 等）
+                if !has_filters {
+                    for child in sorted_entries(&slug_abs) {
+                        let name = fname(&child);
+                        if name == "sessions" || name_skipped(&name) {
+                            continue;
+                        }
+                        inc.insert(format!("projects/{}/{}", slug, name));
+                        if child.is_dir() {
+                            add_tree(&child, &format!("projects/{}/{}", slug, name), &mut inc, opts.include_secrets);
+                        }
                     }
                 }
             }

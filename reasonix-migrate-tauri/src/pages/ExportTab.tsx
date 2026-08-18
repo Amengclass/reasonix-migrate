@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Archive, FileArchive, Folder, HardDrive, Play, RefreshCw } from "lucide-react";
+import { Archive, FileArchive, Folder, HardDrive, Play, RefreshCw, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,8 +95,13 @@ export function ExportTab() {
   const openSessionPicker = async () => {
     if (!src.trim()) throw new Error("请先填写源 home");
     const all = await loadSessionsCached();
+    // 按已选项目过滤：选了项目只显示该项目的会话，没选则显示全部
+    const selectedProjects = project.trim() ? project.trim().split(/[,\s]+/).filter(Boolean) : [];
+    const filtered = selectedProjects.length > 0
+      ? all.filter((s) => s.slug && selectedProjects.includes(s.slug))
+      : all;
     setSessPicker({
-      rows: all.map((s) => ({
+      rows: filtered.map((s) => ({
         value: s.id,
         label: s.title ? `「${s.title.slice(0, 36)}」` : s.id,
         sub: `${readableDate(s.id)} · ${projectName(s.slug)}`,
@@ -194,12 +199,23 @@ export function ExportTab() {
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <Label className="w-20 shrink-0 text-xs text-muted-foreground">项目</Label>
-                <Input
-                  value={project}
-                  onChange={(e) => setProject(e.target.value)}
-                  placeholder="全部（可多选）"
-                  className="h-7 flex-1 text-xs"
-                />
+                {project.trim() ? (
+                  <>
+                    <div className="h-7 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md border bg-muted/30 px-2 py-1 text-xs">
+                      {project.trim().split(/[,\s]+/).filter(Boolean).map(projectName).join("、")}
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 w-7 shrink-0 px-0" onClick={() => { setProject(""); setSession(""); }}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <Input
+                    value={project}
+                    onChange={(e) => setProject(e.target.value)}
+                    placeholder="全部（可多选）"
+                    className="h-7 flex-1 text-xs"
+                  />
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -213,12 +229,23 @@ export function ExportTab() {
               </div>
               <div className="flex items-center gap-2">
                 <Label className="w-20 shrink-0 text-xs text-muted-foreground">会话</Label>
-                <Input
-                  value={session}
-                  onChange={(e) => setSession(e.target.value)}
-                  placeholder="全部（可多选）"
-                  className="h-7 flex-1 text-xs"
-                />
+                {session.trim() ? (
+                  <>
+                    <div className="h-7 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md border bg-muted/30 px-2 py-1 text-xs">
+                      {session.trim().split(/[,\s]+/).filter(Boolean).length} 个会话已选
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 w-7 shrink-0 px-0" onClick={() => setSession("")}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <Input
+                    value={session}
+                    onChange={(e) => setSession(e.target.value)}
+                    placeholder="全部（可多选）"
+                    className="h-7 flex-1 text-xs"
+                  />
+                )}
                 <Button
                   type="button"
                   variant="outline"
