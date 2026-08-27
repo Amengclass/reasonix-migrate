@@ -1,0 +1,139 @@
+name: CI Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+        working-directory: reasonix-migrate-tauri
+      - run: pnpm tauri build
+        working-directory: reasonix-migrate-tauri
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reasonix-migrate-windows-${{ github.sha }}
+          path: reasonix-migrate-tauri/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 90
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            artifact: macos-x64
+          - target: aarch64-apple-darwin
+            artifact: macos-arm64
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: pnpm install --frozen-lockfile
+        working-directory: reasonix-migrate-tauri
+      - run: pnpm tauri build --target ${{ matrix.target }} --bundles dmg
+        working-directory: reasonix-migrate-tauri
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reasonix-migrate-${{ matrix.artifact }}-${{ github.sha }}
+          path: reasonix-migrate-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 90
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+      - run: pnpm install --frozen-lockfile
+        working-directory: reasonix-migrate-tauri
+      - run: pnpm tauri build --bundles appimage,deb
+        working-directory: reasonix-migrate-tauri
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reasonix-migrate-linux-${{ github.sha }}
+          path: |
+            reasonix-migrate-tauri/src-tauri/target/release/bundle/appimage/*.AppImage
+            reasonix-migrate-tauri/src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+          retention-days: 90
+
+  publish-nightly:
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-windows-${{ github.sha }}
+          path: artifacts/windows
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-macos-x64-${{ github.sha }}
+          path: artifacts/macos-x64
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-macos-arm64-${{ github.sha }}
+          path: artifacts/macos-arm64
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-linux-${{ github.sha }}
+          path: artifacts/linux
+      - name: Publish nightly pre-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p nightly
+          cp artifacts/windows/*.exe nightly/reasonix-migrate-nightly_x64-setup.exe
+          cp artifacts/macos-x64/*.dmg nightly/reasonix-migrate-nightly_x64.dmg
+          cp artifacts/macos-arm64/*.dmg nightly/reasonix-migrate-nightly_aarch64.dmg
+          cp artifacts/linux/*.AppImage nightly/reasonix-migrate-nightly_amd64.AppImage
+          cp artifacts/linux/*.deb nightly/reasonix-migrate-nightly_amd64.deb
+          ls -lh nightly
+          gh release create nightly \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Nightly CI Build" \
+            --notes "最新 main 分支的全平台构建（pre-release）。" \
+            --prerelease 2>/dev/null || true
+          gh release upload nightly \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            nightly/*
