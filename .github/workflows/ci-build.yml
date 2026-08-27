@@ -30,7 +30,7 @@ jobs:
         working-directory: reasonix-migrate-tauri
       - uses: actions/upload-artifact@v4
         with:
-          name: reasonix-migrate-windows-${{ github.sha }}
+          name: reasonix-migrate-windows-${{ github.run_number }}
           path: reasonix-migrate-tauri/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           retention-days: 90
@@ -62,7 +62,7 @@ jobs:
         working-directory: reasonix-migrate-tauri
       - uses: actions/upload-artifact@v4
         with:
-          name: reasonix-migrate-${{ matrix.artifact }}-${{ github.sha }}
+          name: reasonix-migrate-${{ matrix.artifact }}-${{ github.run_number }}
           path: reasonix-migrate-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 90
@@ -92,7 +92,7 @@ jobs:
         working-directory: reasonix-migrate-tauri
       - uses: actions/upload-artifact@v4
         with:
-          name: reasonix-migrate-linux-${{ github.sha }}
+          name: reasonix-migrate-linux-${{ github.run_number }}
           path: |
             reasonix-migrate-tauri/src-tauri/target/release/bundle/appimage/*.AppImage
             reasonix-migrate-tauri/src-tauri/target/release/bundle/deb/*.deb
@@ -108,20 +108,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v7
         with:
-          name: reasonix-migrate-windows-${{ github.sha }}
-          path: artifacts/windows
-      - uses: actions/download-artifact@v7
-        with:
-          name: reasonix-migrate-macos-x64-${{ github.sha }}
-          path: artifacts/macos-x64
-      - uses: actions/download-artifact@v7
-        with:
-          name: reasonix-migrate-macos-arm64-${{ github.sha }}
-          path: artifacts/macos-arm64
-      - uses: actions/download-artifact@v7
-        with:
-          name: reasonix-migrate-linux-${{ github.sha }}
-          path: artifacts/linux
+          pattern: reasonix-migrate-*-*
+          path: artifacts
+          merge-multiple: true
       - name: Publish nightly pre-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
