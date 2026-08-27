@@ -16,11 +16,28 @@ jobs:
     steps:
       - uses: actions/download-artifact@v7
         with:
-          pattern: reasonix-migrate-*
-          path: artifacts
+          pattern: reasonix-migrate-windows*
+          path: artifacts/windows
           run-id: ${{ inputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          merge-multiple: true
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: reasonix-migrate-macos-x64*
+          path: artifacts/macos-x64
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: reasonix-migrate-macos-arm64*
+          path: artifacts/macos-arm64
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: reasonix-migrate-linux*
+          path: artifacts/linux
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Debug - show artifact structure
         run: find artifacts -type f
       - name: Publish nightly pre-release
@@ -29,11 +46,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p nightly
-          find artifacts -type f -name "*.exe" -exec cp {} nightly/reasonix-migrate-nightly_x64-setup.exe \;
-          find artifacts -type f -name "*x64*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_x64.dmg \;
-          find artifacts -type f -name "*arm64*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_aarch64.dmg \;
-          find artifacts -type f -name "*.AppImage" -exec cp {} nightly/reasonix-migrate-nightly_amd64.AppImage \; || true
-          find artifacts -type f -name "*.deb" -exec cp {} nightly/reasonix-migrate-nightly_amd64.deb \;
+          find artifacts/windows -type f -name "*.exe" -exec cp {} nightly/reasonix-migrate-nightly_x64-setup.exe \;
+          find artifacts/macos-x64 -type f -name "*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_x64.dmg \;
+          find artifacts/macos-arm64 -type f -name "*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_aarch64.dmg \;
+          find artifacts/linux -type f -name "*.AppImage" -exec cp {} nightly/reasonix-migrate-nightly_amd64.AppImage \; || true
+          find artifacts/linux -type f -name "*.deb" -exec cp {} nightly/reasonix-migrate-nightly_amd64.deb \;
           ls -lh nightly
           gh release delete nightly --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
           gh release create nightly \
