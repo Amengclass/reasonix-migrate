@@ -34,7 +34,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install
         working-directory: reasonix-migrate-tauri
@@ -68,7 +68,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-apple-darwin
@@ -92,7 +92,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin
@@ -116,7 +116,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux build dependencies
         run: |
