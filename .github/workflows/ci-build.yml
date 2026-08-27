@@ -129,8 +129,8 @@ jobs:
           set -euo pipefail
           mkdir -p nightly
           find artifacts -type f -name "*.exe" -exec cp {} nightly/reasonix-migrate-nightly_x64-setup.exe \;
-          find artifacts -type f -name "*x64*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_x64.dmg \;
-          find artifacts -type f -name "*arm64*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_aarch64.dmg \;
+          find artifacts -path "*/macos-x64/*" -type f -name "*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_x64.dmg \;
+          find artifacts -path "*/macos-arm64/*" -type f -name "*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_aarch64.dmg \;
           find artifacts -type f -name "*.AppImage" -exec cp {} nightly/reasonix-migrate-nightly_amd64.AppImage \; || true
           find artifacts -type f -name "*.deb" -exec cp {} nightly/reasonix-migrate-nightly_amd64.deb \;
           ls -lh nightly
