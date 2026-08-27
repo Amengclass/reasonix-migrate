@@ -134,12 +134,10 @@ jobs:
           cp artifacts/linux/*.AppImage nightly/reasonix-migrate-nightly_amd64.AppImage || true
           cp artifacts/linux/*.deb nightly/reasonix-migrate-nightly_amd64.deb
           ls -lh nightly
+          gh release delete nightly --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
           gh release create nightly \
             --repo "$GITHUB_REPOSITORY" \
             --title "Nightly CI Build" \
             --notes "最新 main 分支的全平台构建（pre-release）。" \
-            --prerelease 2>/dev/null || true
-          gh release upload nightly \
-            --repo "$GITHUB_REPOSITORY" \
-            --clobber \
+            --prerelease \
             nightly/*
