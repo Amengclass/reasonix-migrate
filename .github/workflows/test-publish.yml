@@ -1,0 +1,61 @@
+name: Test Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "CI Build run ID to download artifacts from (e.g. 33095544718)"
+        required: true
+        type: string
+
+jobs:
+  test-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-windows
+          path: artifacts/windows
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-macos-x64
+          path: artifacts/macos-x64
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-macos-arm64
+          path: artifacts/macos-arm64
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-linux
+          path: artifacts/linux
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Debug - show artifact structure
+        run: find artifacts -type f | head -30
+      - name: Publish nightly pre-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p nightly
+          find artifacts -type f -name "*.exe" -exec cp {} nightly/reasonix-migrate-nightly_x64-setup.exe \;
+          find artifacts -type f -name "*x64*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_x64.dmg \;
+          find artifacts -type f -name "*arm64*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_aarch64.dmg \;
+          find artifacts -type f -name "*.AppImage" -exec cp {} nightly/reasonix-migrate-nightly_amd64.AppImage \; || true
+          find artifacts -type f -name "*.deb" -exec cp {} nightly/reasonix-migrate-nightly_amd64.deb \;
+          ls -lh nightly
+          gh release delete nightly --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create nightly \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Nightly CI Build" \
+            --notes "最新 main 分支的全平台构建（pre-release）。" \
+            --prerelease \
+            nightly/*
