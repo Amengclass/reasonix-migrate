@@ -30,7 +30,7 @@ jobs:
         working-directory: reasonix-migrate-tauri
       - uses: actions/upload-artifact@v4
         with:
-          name: reasonix-migrate-windows-${{ github.run_number }}
+          name: reasonix-migrate-windows
           path: reasonix-migrate-tauri/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           retention-days: 90
@@ -62,7 +62,7 @@ jobs:
         working-directory: reasonix-migrate-tauri
       - uses: actions/upload-artifact@v4
         with:
-          name: reasonix-migrate-${{ matrix.artifact }}-${{ github.run_number }}
+          name: reasonix-migrate-${{ matrix.artifact }}
           path: reasonix-migrate-tauri/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 90
@@ -92,7 +92,7 @@ jobs:
         working-directory: reasonix-migrate-tauri
       - uses: actions/upload-artifact@v4
         with:
-          name: reasonix-migrate-linux-${{ github.run_number }}
+          name: reasonix-migrate-linux
           path: |
             reasonix-migrate-tauri/src-tauri/target/release/bundle/appimage/*.AppImage
             reasonix-migrate-tauri/src-tauri/target/release/bundle/deb/*.deb
@@ -108,19 +108,19 @@ jobs:
     steps:
       - uses: actions/download-artifact@v7
         with:
-          name: reasonix-migrate-windows-${{ github.run_number }}
+          name: reasonix-migrate-windows
           path: artifacts/windows
       - uses: actions/download-artifact@v7
         with:
-          name: reasonix-migrate-macos-x64-${{ github.run_number }}
+          name: reasonix-migrate-macos-x64
           path: artifacts/macos-x64
       - uses: actions/download-artifact@v7
         with:
-          name: reasonix-migrate-macos-arm64-${{ github.run_number }}
+          name: reasonix-migrate-macos-arm64
           path: artifacts/macos-arm64
       - uses: actions/download-artifact@v7
         with:
-          name: reasonix-migrate-linux-${{ github.run_number }}
+          name: reasonix-migrate-linux
           path: artifacts/linux
       - name: Publish nightly pre-release
         env:
@@ -128,11 +128,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p nightly
-          cp artifacts/windows/*.exe nightly/reasonix-migrate-nightly_x64-setup.exe
-          cp artifacts/macos-x64/*.dmg nightly/reasonix-migrate-nightly_x64.dmg
-          cp artifacts/macos-arm64/*.dmg nightly/reasonix-migrate-nightly_aarch64.dmg
-          cp artifacts/linux/*.AppImage nightly/reasonix-migrate-nightly_amd64.AppImage || true
-          cp artifacts/linux/*.deb nightly/reasonix-migrate-nightly_amd64.deb
+          find artifacts -type f -name "*.exe" -exec cp {} nightly/reasonix-migrate-nightly_x64-setup.exe \;
+          find artifacts -type f -name "*x64*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_x64.dmg \;
+          find artifacts -type f -name "*arm64*.dmg" -exec cp {} nightly/reasonix-migrate-nightly_aarch64.dmg \;
+          find artifacts -type f -name "*.AppImage" -exec cp {} nightly/reasonix-migrate-nightly_amd64.AppImage \; || true
+          find artifacts -type f -name "*.deb" -exec cp {} nightly/reasonix-migrate-nightly_amd64.deb \;
           ls -lh nightly
           gh release delete nightly --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
           gh release create nightly \
