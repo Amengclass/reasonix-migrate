@@ -36,7 +36,7 @@ jobs:
         with:
           version: 9
       - uses: dtolnay/rust-toolchain@stable
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install
         working-directory: reasonix-migrate-tauri
       - run: pnpm tauri build
         working-directory: reasonix-migrate-tauri
@@ -72,7 +72,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-apple-darwin
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install
         working-directory: reasonix-migrate-tauri
       - run: pnpm tauri build --target x86_64-apple-darwin --bundles dmg
         working-directory: reasonix-migrate-tauri
@@ -96,7 +96,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install
         working-directory: reasonix-migrate-tauri
       - run: pnpm tauri build --target aarch64-apple-darwin --bundles dmg
         working-directory: reasonix-migrate-tauri
@@ -126,7 +126,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install
         working-directory: reasonix-migrate-tauri
       - run: pnpm tauri build --bundles appimage,deb
         working-directory: reasonix-migrate-tauri
