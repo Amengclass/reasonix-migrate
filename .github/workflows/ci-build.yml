@@ -108,9 +108,20 @@ jobs:
     steps:
       - uses: actions/download-artifact@v7
         with:
-          pattern: reasonix-migrate-*-*
-          path: artifacts
-          merge-multiple: true
+          name: reasonix-migrate-windows-${{ github.run_number }}
+          path: artifacts/windows
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-macos-x64-${{ github.run_number }}
+          path: artifacts/macos-x64
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-macos-arm64-${{ github.run_number }}
+          path: artifacts/macos-arm64
+      - uses: actions/download-artifact@v7
+        with:
+          name: reasonix-migrate-linux-${{ github.run_number }}
+          path: artifacts/linux
       - name: Publish nightly pre-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -120,7 +131,7 @@ jobs:
           cp artifacts/windows/*.exe nightly/reasonix-migrate-nightly_x64-setup.exe
           cp artifacts/macos-x64/*.dmg nightly/reasonix-migrate-nightly_x64.dmg
           cp artifacts/macos-arm64/*.dmg nightly/reasonix-migrate-nightly_aarch64.dmg
-          cp artifacts/linux/*.AppImage nightly/reasonix-migrate-nightly_amd64.AppImage
+          cp artifacts/linux/*.AppImage nightly/reasonix-migrate-nightly_amd64.AppImage || true
           cp artifacts/linux/*.deb nightly/reasonix-migrate-nightly_amd64.deb
           ls -lh nightly
           gh release create nightly \
