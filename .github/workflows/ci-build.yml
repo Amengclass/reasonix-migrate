@@ -21,6 +21,8 @@ jobs:
         with:
           node-version: 22
       - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
         working-directory: reasonix-migrate-tauri
@@ -49,6 +51,8 @@ jobs:
         with:
           node-version: 22
       - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -71,6 +75,8 @@ jobs:
         with:
           node-version: 22
       - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux build dependencies
         run: |
