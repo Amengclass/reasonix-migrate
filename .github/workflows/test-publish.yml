@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: "CI Build run ID to download artifacts from (e.g. 33095544718)"
+        description: "CI Build run ID to download artifacts from"
         required: true
         type: string
 
@@ -16,30 +16,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v7
         with:
-          name: reasonix-migrate-windows
-          path: artifacts/windows
+          pattern: reasonix-migrate-*
+          path: artifacts
           run-id: ${{ inputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/download-artifact@v7
-        with:
-          name: reasonix-migrate-macos-x64
-          path: artifacts/macos-x64
-          run-id: ${{ inputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/download-artifact@v7
-        with:
-          name: reasonix-migrate-macos-arm64
-          path: artifacts/macos-arm64
-          run-id: ${{ inputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/download-artifact@v7
-        with:
-          name: reasonix-migrate-linux
-          path: artifacts/linux
-          run-id: ${{ inputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          merge-multiple: true
       - name: Debug - show artifact structure
-        run: find artifacts -type f | head -30
+        run: find artifacts -type f
       - name: Publish nightly pre-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
